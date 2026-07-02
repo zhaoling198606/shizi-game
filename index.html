@@ -286,9 +286,28 @@ const CATEGORIES = FULL_CATEGORIES.map(cat => ({
 
 function speakChar(ch) {
   if (!ch||!ch.trim()) return;
-  if ('speechSynthesis' in window && !/Android/i.test(navigator.userAgent)) {
-    try { window.speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(ch); u.lang='zh-CN'; u.rate=.9; u.volume=1; window.speechSynthesis.speak(u); return; } catch(e) {}
+  // 方案1: Web Speech API（Chrome桌面/Android/Safari iOS均支持）
+  if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      // iOS Safari 语音引擎bug修复：插入一个空语音重置内部状态
+      if (/iPad|iPhone|iPod/i.test(navigator.userAgent)) {
+        var dummy=new SpeechSynthesisUtterance(' '); dummy.volume=0;
+        window.speechSynthesis.speak(dummy);
+      }
+      var u=new SpeechSynthesisUtterance(ch);
+      u.lang='zh-CN'; u.rate=.85; u.volume=1;
+      // iOS需要设置voice触发中文语音
+      if (/iPad|iPhone|iPod/i.test(navigator.userAgent)) {
+        var voices=window.speechSynthesis.getVoices();
+        var zh=voices.find(function(v){return v.lang.startsWith('zh');});
+        if(zh) u.voice=zh;
+      }
+      window.speechSynthesis.speak(u);
+      return;
+    } catch(e) { /* fall through */ }
   }
+  // 方案2: Google Translate TTS（兜底，可靠性较低）
   try { var a=new Audio(); a.src='https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q='+encodeURIComponent(ch); a.volume=1; a.play().catch(function(){}); } catch(e) {}
 }
 
